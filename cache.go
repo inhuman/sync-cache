@@ -54,6 +54,11 @@ func (c *SyncCacheClient) RemoveCacheGroup(cacheGroupName string) {
 	c.cacheGroupManager.Unlock()
 }
 
+func (c *SyncCacheClient) UpdateRedisKey(cacheGroupName, key string) {
+	newUuid := uuidgen.New().String()
+	c.redis.Set(cacheGroupName+"_"+key, newUuid, 0)
+}
+
 func (c *SyncCacheClient) Get(cacheGroupName, key string) (interface{}, error) {
 
 	// Try to find an record with a given ID object in Redis
