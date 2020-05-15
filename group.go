@@ -4,7 +4,7 @@ import "sync"
 
 const GroupCacheCapacity = 100
 
-type GetterFunc func(setCacheFunc SetCacheFunc)
+type GetterFunc func(key string, setCacheFunc SetCacheFunc) error
 type SetCacheFunc func(i interface{})
 
 type CacheGroup struct {

@@ -3,7 +3,7 @@ package sync_cache
 import (
 	"fmt"
 	"github.com/go-redis/redis"
-	uuid_gen "github.com/google/uuid"
+	uuidgen "github.com/google/uuid"
 	"sync"
 )
 
@@ -54,41 +54,42 @@ func (c *SyncCacheClient) RemoveCacheGroup(cacheGroupName string) {
 	c.cacheGroupManager.Unlock()
 }
 
-func (c *SyncCacheClient) Get(cacheGroupName, key string) interface{} {
+func (c *SyncCacheClient) Get(cacheGroupName, key string) (interface{}, error) {
 
-	// Смотрим, есть ли объект с заданным ID-объекта в Redis
+	// Try to find an record with a given ID object in Redis
 	uuid, err := c.redis.Get(cacheGroupName + "_" + key).Result()
 
-	// Если объекта нет в Redis
+	// Record not found in Redis
 	if err == redis.Nil {
-		//TODO: remove debug
-		fmt.Printf("key %s does not exist\n", cacheGroupName+"_"+key)
 
-		// При наличии объекта в кэше, удалить его из кэша.
+		// If object exists in cache - remove it
 		k := c.cacheGroupManager.cacheGroups[cacheGroupName].get(key)
 		if k.object != nil {
 			c.cacheGroupManager.cacheGroups[cacheGroupName].delete(key)
 		}
 
-		// Взять объект из БД и добавить в кэш и в Redis.
-		// Для устранения ситуации, когда обновление/удаление записи окажется быстрее,
-		// чем добавление в кэш (комментарий andreyverbin) в кэш добавляем объект с нулевым UUID.
-		// Тогда при первом же обращении к кэшу будет выявлена разница в UUID с Redis, а данные из БД будут
-		// снова запрошены.
+		// Fetch object from db and add to cache
+		// To avoid the situation when updating / deleting a record is faster,
+		// than adding to the cache (andreyverbin comment) we add an object with a zero UUID to the cache.
+		// Then the first time you access the cache, the difference in UUID with Redis will be revealed,
+		// and the data from the database will be requested again.
 		setCacheFunc := func(i interface{}) {
 			c.cacheGroupManager.cacheGroups[cacheGroupName].set(key, i, "")
 		}
 
-		newUuid := uuid_gen.New().String()
+		// and to Redis
+		newUuid := uuidgen.New().String()
 		c.redis.Set(cacheGroupName+"_"+key, newUuid, 0)
-		c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(setCacheFunc)
+
+		if err := c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(key, setCacheFunc); err != nil {
+			return nil, err
+		}
 
 	} else if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	// Если объект есть в Redis
-
+	// If object exists in Redis
 	c.cacheGroupManager.RLock()
 	if c.cacheGroupManager.cacheGroups[cacheGroupName] == nil {
 		panic(fmt.Sprintf("group %s does not exist", cacheGroupName))
@@ -103,7 +104,9 @@ func (c *SyncCacheClient) Get(cacheGroupName, key string) interface{} {
 	// Если объекта нет в in-memory кэше, тогда берём его из БД и добавляем в in-memory кэш с UUID из Redis
 	//  и обновляем TTL ключа в Redis.
 	if k.object == nil {
-		c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(setCacheFunc)
+		if err := c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(key, setCacheFunc); err != nil {
+			return nil, err
+		}
 	}
 
 	// Если объект есть в in-memory кэше, тогда берём его из кэша, проверяем, совпадает ли UUID в кэше и в Redis
@@ -111,17 +114,22 @@ func (c *SyncCacheClient) Get(cacheGroupName, key string) interface{} {
 	//  берём из БД, добавляем в in-memory кэш с UUID из Redis.
 	if k.uuid != uuid {
 		c.cacheGroupManager.cacheGroups[cacheGroupName].delete(key)
-		c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(setCacheFunc)
+		if err := c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(key, setCacheFunc); err != nil {
+			return nil, err
+		}
 	}
 
-	return c.cacheGroupManager.cacheGroups[cacheGroupName].get(key).object
+	return c.cacheGroupManager.cacheGroups[cacheGroupName].get(key).object, nil
 }
 
-func (c *SyncCacheClient) Delete(cacheGroupName, key string) {
+func (c *SyncCacheClient) Delete(cacheGroupName, key string) (int64, error) {
+
 	c.cacheGroupManager.RLock()
 	if c.cacheGroupManager.cacheGroups[cacheGroupName] == nil {
 		panic(fmt.Sprintf("group %s does not exist", cacheGroupName))
 	}
 	c.cacheGroupManager.cacheGroups[cacheGroupName].delete(key)
 	c.cacheGroupManager.RUnlock()
+
+	return c.redis.Del(cacheGroupName + "_" + key).Result()
 }
