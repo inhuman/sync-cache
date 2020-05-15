@@ -101,17 +101,15 @@ func (c *SyncCacheClient) Get(cacheGroupName, key string) (interface{}, error) {
 		c.cacheGroupManager.cacheGroups[cacheGroupName].set(key, i, uuid)
 	}
 
-	// Если объекта нет в in-memory кэше, тогда берём его из БД и добавляем в in-memory кэш с UUID из Redis
-	//  и обновляем TTL ключа в Redis.
+	// If object not exists in memory cache than fetch it from db and add to memory cache with Redis uuid
 	if k.object == nil {
 		if err := c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(key, setCacheFunc); err != nil {
 			return nil, err
 		}
 	}
 
-	// Если объект есть в in-memory кэше, тогда берём его из кэша, проверяем, совпадает ли UUID в кэше и в Redis
-	//  и если да, то обновляем TTL в кэше и в Redis. Если UUID не совпадает, то удаляем объект из in-memory кэша,
-	//  берём из БД, добавляем в in-memory кэш с UUID из Redis.
+	// If object exists in memory cache, than take it from cache, compare uuid in cache with Redis uuid
+	// if not, delete object from memory cache, and add object from db to cache with Redis uuid
 	if k.uuid != uuid {
 		c.cacheGroupManager.cacheGroups[cacheGroupName].delete(key)
 		if err := c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(key, setCacheFunc); err != nil {
