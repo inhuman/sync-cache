@@ -1,0 +1,12 @@
+repos:
+  - repo: git://github.com/inhuman/pre-commit-golang
+    rev: v0.4.5
+    hooks:
+      - id: go-fmt
+      - id: go-vet
+      - id: go-imports
+      - id: go-cyclo
+        args: [-over=50]
+      - id: golangci-lint
+      - id: go-unit-tests
+      - id: go-build
