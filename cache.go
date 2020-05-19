@@ -16,7 +16,7 @@ type SyncCacheOpts struct {
 }
 
 type SyncCacheClient struct {
-	redis             *redis.Client
+	redis             Redis
 	cacheGroupManager *CacheGroupsManager
 }
 
