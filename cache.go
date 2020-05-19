@@ -13,6 +13,7 @@ type SyncCacheOpts struct {
 	Address  string
 	Password string
 	Db       int
+	Redis    Redis
 }
 
 type SyncCacheClient struct {
@@ -31,6 +32,11 @@ func NewSyncCacheClient(opts SyncCacheOpts) *SyncCacheClient {
 		cacheGroupManager: &CacheGroupsManager{
 			cacheGroups: make(map[string]*CacheGroup, SyncCacheGroupCapacity),
 		},
+	}
+
+	if opts.Redis != nil {
+		c.redis = opts.Redis
+		return c
 	}
 
 	c.redis = redis.NewClient(&redis.Options{
