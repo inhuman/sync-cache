@@ -60,7 +60,7 @@ func (c *SyncCacheClient) RemoveCacheGroup(cacheGroupName string) {
 	c.cacheGroupManager.Unlock()
 }
 
-func (c *SyncCacheClient) UpdateRedisKey(cacheGroupName, key string) {
+func (c *SyncCacheClient) Update(cacheGroupName, key string) {
 	newUuid := uuidgen.New().String()
 	c.redis.Set(cacheGroupName+"_"+key, newUuid, 0)
 }
