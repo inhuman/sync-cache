@@ -55,14 +55,14 @@ func (c *SyncCacheClient) AddCacheGroup(cacheGroupName string, getterFunc Getter
 }
 
 func (c *SyncCacheClient) GetCacheGroup(cacheGroupName string) *CacheGroup {
-	c.cacheGroupManager.RUnlock()
+	c.cacheGroupManager.RLock()
 	g := c.cacheGroupManager.cacheGroups[cacheGroupName]
 	c.cacheGroupManager.RUnlock()
 	return g
 }
 
 func (c *SyncCacheClient) GetCacheGroups() map[string]*CacheGroup {
-	c.cacheGroupManager.RUnlock()
+	c.cacheGroupManager.RLock()
 	g := c.cacheGroupManager.cacheGroups
 	c.cacheGroupManager.RUnlock()
 	return g
