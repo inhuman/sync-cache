@@ -8,6 +8,7 @@ type GetterFunc func(key string, setCacheFunc SetCacheFunc) error
 type SetCacheFunc func(i interface{})
 
 type CacheGroup struct {
+	name string
 	sync.RWMutex
 	cache      map[string]CacheEntity
 	getterFunc GetterFunc
@@ -18,10 +19,25 @@ type CacheEntity struct {
 	object interface{}
 }
 
-func NewCacheGroup(getterFunc GetterFunc) *CacheGroup {
+type CacheStats struct {
+	Items int
+}
+
+func NewCacheGroup(name string, getterFunc GetterFunc) *CacheGroup {
 	return &CacheGroup{
+		name:       name,
 		cache:      make(map[string]CacheEntity, GroupCacheCapacity),
 		getterFunc: getterFunc,
+	}
+}
+
+func (g *CacheGroup) Name() string {
+	return g.name
+}
+
+func (g *CacheGroup) CacheStats() *CacheStats {
+	return &CacheStats{
+		Items: len(g.cache),
 	}
 }
 

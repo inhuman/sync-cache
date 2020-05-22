@@ -50,8 +50,22 @@ func NewSyncCacheClient(opts SyncCacheOpts) *SyncCacheClient {
 
 func (c *SyncCacheClient) AddCacheGroup(cacheGroupName string, getterFunc GetterFunc) {
 	c.cacheGroupManager.Lock()
-	c.cacheGroupManager.cacheGroups[cacheGroupName] = NewCacheGroup(getterFunc)
+	c.cacheGroupManager.cacheGroups[cacheGroupName] = NewCacheGroup(cacheGroupName, getterFunc)
 	c.cacheGroupManager.Unlock()
+}
+
+func (c *SyncCacheClient) GetCacheGroup(cacheGroupName string) *CacheGroup {
+	c.cacheGroupManager.RUnlock()
+	g := c.cacheGroupManager.cacheGroups[cacheGroupName]
+	c.cacheGroupManager.RUnlock()
+	return g
+}
+
+func (c *SyncCacheClient) GetCacheGroups() map[string]*CacheGroup {
+	c.cacheGroupManager.RUnlock()
+	g := c.cacheGroupManager.cacheGroups
+	c.cacheGroupManager.RUnlock()
+	return g
 }
 
 func (c *SyncCacheClient) RemoveCacheGroup(cacheGroupName string) {
