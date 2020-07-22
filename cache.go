@@ -5,20 +5,23 @@ import (
 	"github.com/go-redis/redis"
 	uuidgen "github.com/google/uuid"
 	"sync"
+	"time"
 )
 
 const SyncCacheGroupCapacity = 10
 
 type SyncCacheOpts struct {
-	Address  string
-	Password string
-	Db       int
-	Redis    Redis
+	Address    string
+	Password   string
+	Db         int
+	Redis      Redis
+	Expiration time.Duration
 }
 
 type SyncCacheClient struct {
 	redis             Redis
 	cacheGroupManager *CacheGroupsManager
+	expiration        time.Duration
 }
 
 type CacheGroupsManager struct {
@@ -32,6 +35,7 @@ func NewSyncCacheClient(opts SyncCacheOpts) *SyncCacheClient {
 		cacheGroupManager: &CacheGroupsManager{
 			cacheGroups: make(map[string]*CacheGroup, SyncCacheGroupCapacity),
 		},
+		expiration: opts.Expiration,
 	}
 
 	if opts.Redis != nil {
@@ -76,7 +80,7 @@ func (c *SyncCacheClient) RemoveCacheGroup(cacheGroupName string) {
 
 func (c *SyncCacheClient) Update(cacheGroupName, key string) {
 	newUuid := uuidgen.New().String()
-	c.redis.Set(cacheGroupName+"_"+key, newUuid, 0)
+	c.redis.Set(cacheGroupName+"_"+key, newUuid, c.expiration)
 }
 
 func (c *SyncCacheClient) RedisFlushDb() {
@@ -108,7 +112,7 @@ func (c *SyncCacheClient) Get(cacheGroupName, key string) (interface{}, error) {
 
 		// and to Redis
 		newUuid := uuidgen.New().String()
-		c.redis.Set(cacheGroupName+"_"+key, newUuid, 0)
+		c.redis.Set(cacheGroupName+"_"+key, newUuid, c.expiration)
 
 		if err := c.cacheGroupManager.cacheGroups[cacheGroupName].getterFunc(key, setCacheFunc); err != nil {
 			return nil, err
